@@ -1,0 +1,50 @@
+image: docker:20.10.16
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+
+services:
+  - docker:20.10.16-dind
+
+stages:          # List of stages for jobs, and their order of execution
+  - build-and-publish-images
+  - deploy_dev
+  - deploy_prod
+
+build-and-publish-images:
+  rules:
+    - if: $ENVIRONMENT != "dev" || $ENVIRONMENT != "prod"
+  tags:
+    - docker
+  stage: build-and-publish-images
+  before_script:
+    - docker login -u $DOCKERHUB_USER -p $DOCKERHUB_PASSWORD
+  script: 
+    - docker-compose -f docker-compose-build.yaml build --parallel
+    - docker images
+    - docker push yohansto13/udagram-reverseproxy
+    - docker push yohansto13/udagram-api-feed
+    - docker push yohansto13/udagram-api-user
+    - docker push yohansto13/udagram-frontend
+
+deploy_dev:
+  stage: deploy_dev
+  tags:
+    - docker
+  before_script:
+    - chmod 700 $DOCKERHUB_KEY
+    - scp -o StrictHostKeyChecking=no -i $DOCKERHUB_KEY docker-compose.yaml ubuntu@52.90.90.228:/home/ubuntu/
+  script:
+    - ssh -o StrictHostKeyChecking=no -i $DOCKERHUB_KEY ubuntu@52.90.90.228 &&
+      ls && 
+      docker compose down &&
+      docker compose up -d &&
+      docker images &&
+      docker ps
+
+deploy_prod:
+  stage: deploy_prod
+  tags:
+   - docker
+  script: 
+    - echo "tt"

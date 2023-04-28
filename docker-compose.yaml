@@ -1,0 +1,77 @@
+version: "3"
+services:
+  udagramd-db:
+    image: postgres
+    networks:
+      - udagram
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin1234
+      POSTGRES_DB: udagram-db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-db-data:/var/lib/postgresql/data
+  reverseproxy:
+    build:
+        context: ./udagram-reverseproxy
+    image: yohansto13/udagram-reverseproxy
+    networks:
+      - udagram
+    ports:
+      - 8080:8080
+    depends_on:
+      - udagramd-db
+      - backend-user
+      - backend-feed
+  backend-user:
+    depends_on:
+      - udagramd-db
+    build:
+      context: ./udagram-api-user
+    image: yohansto13/udagram-api-user
+    networks:
+      - udagram
+    environment:
+      POSTGRES_USERNAME: admin
+      POSTGRES_PASSWORD: admin1234
+      POSTGRES_DB: udagram-db
+      POSTGRES_HOST: udagramd-db
+      AWS_REGION: us-east-1
+      AWS_PROFILE: default
+      AWS_BUCKET: udagram-ynov-pgy
+      JWT_SECRET: testing
+      URL: "http://localhost:8100"
+  backend-feed:
+    depends_on:
+      - udagramd-db
+    build:
+      context: ./udagram-api-feed
+    image: yohansto13/udagram-api-feed
+    networks:
+      - udagram
+    volumes:
+      - .aws:/root/.aws
+    environment:
+      POSTGRES_USERNAME: admin
+      POSTGRES_PASSWORD: admin1234
+      POSTGRES_DB: udagram-db
+      POSTGRES_HOST: udagramd-db
+      AWS_REGION: us-east-1
+      AWS_PROFILE: default
+      AWS_BUCKET: udagram-ynov-pgy
+      JWT_SECRET: testing
+      URL: "http://localhost:8100"
+  frontend:
+    image: yohansto13/udagram-frontend
+    networks:
+      - udagram
+    ports:
+      - "8100:80"
+volumes:
+  postgres-db-data:
+    name: postgres-db-data
+networks:
+  udagram:
+    name: udagram
